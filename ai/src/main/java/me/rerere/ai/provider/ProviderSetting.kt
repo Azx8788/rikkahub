@@ -243,7 +243,79 @@ sealed class ProviderSetting {
                 OpenAI::class,
                 Google::class,
                 Claude::class,
+                Dsh::class,
             )
         }
+    }
+}
+
+/**
+ * DeepChat 专用：dsh 引擎（DeepSeek Harness）本地提供商。
+ *
+ * 与云端 OpenAI 提供商不同，Dsh 不直连外部 API —— 它把请求转发给
+ * 本机运行的 dsh 引擎（127.0.0.1:3080），由引擎负责调用模型。
+ *
+ * 用户只需在设置页填写 DeepSeek API Key（或第三方 OpenAI 兼容供应商的
+ * baseUrl + key），密钥保存后引擎重启自动生效。
+ *
+ * 参考：RikkaHub 的 ProviderSetting.OpenAI 结构（apiKey/baseUrl/models）。
+ */
+@Serializable
+@SerialName("dsh")
+data class Dsh(
+    override var id: Uuid = Uuid.random(),
+    override var enabled: Boolean = true,
+    override var name: String = "DeepSeek Harness (本机)",
+    override var models: List<Model> = emptyList(),
+    override val balanceOption: BalanceOption = BalanceOption(),
+    @Transient override val builtIn: Boolean = false,
+    @Transient override val description: @Composable (() -> Unit) = {},
+    @Transient override val shortDescription: @Composable (() -> Unit) = {},
+    var apiKey: String = "",
+    // 引擎固定在本机：默认值无需修改
+    var baseUrl: String = "http://127.0.0.1:3080",
+) : ProviderSetting() {
+    override fun addModel(model: Model): ProviderSetting {
+        return copy(models = models + model)
+    }
+
+    override fun editModel(model: Model): ProviderSetting {
+        return copy(models = models.map { if (it.id == model.id) model.copy() else it })
+    }
+
+    override fun delModel(model: Model): ProviderSetting {
+        return copy(models = models.filter { it.id != model.id })
+    }
+
+    override fun moveMove(
+        from: Int,
+        to: Int
+    ): ProviderSetting {
+        return copy(models = models.toMutableList().apply {
+            val moved = removeAt(from)
+            add(to, moved)
+        })
+    }
+
+    override fun copyProvider(
+        id: Uuid,
+        enabled: Boolean,
+        name: String,
+        models: List<Model>,
+        balanceOption: BalanceOption,
+        builtIn: Boolean,
+        description: @Composable (() -> Unit),
+        shortDescription: @Composable (() -> Unit),
+    ): ProviderSetting {
+        return this.copy(
+            id = id,
+            enabled = enabled,
+            name = name,
+            models = models,
+            builtIn = builtIn,
+            description = description,
+            shortDescription = shortDescription,
+            balanceOption = balanceOption,
+        )
     }
 }
